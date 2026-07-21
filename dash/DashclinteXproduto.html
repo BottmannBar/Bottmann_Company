@@ -54,6 +54,28 @@
     margin-top: 6px;
   }
 
+  .sync-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 7px 14px;
+    border-radius: 20px;
+    background: rgba(90,200,245,0.08);
+    border: 1px solid rgba(90,200,245,0.25);
+    color: var(--cyan);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+
+  .sync-badge .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 8px var(--cyan);
+  }
+
   .section-title {
     display: flex;
     align-items: center;
@@ -166,13 +188,6 @@
 
   #copyBtn:active { transform: translateY(0); }
 
-  #copyBtn.secondary {
-    background: transparent;
-    color: var(--blue-light);
-    border: 1px solid var(--border);
-    box-shadow: none;
-  }
-
   .table-wrap { overflow-x: auto; padding: 0 28px 28px; }
 
   table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
@@ -187,6 +202,7 @@
     letter-spacing: 1px;
     font-weight: 500;
     border-bottom: 1px solid var(--border);
+    cursor: help;
   }
 
   tbody tr {
@@ -271,6 +287,14 @@
     font-size: 13px;
     font-family: 'JetBrains Mono', monospace;
   }
+
+  footer.note {
+    margin-top: 18px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -279,6 +303,7 @@
   <header>
     <h1>Vendas por cliente</h1>
     <p>Consulte quem comprou o quê, filtre e copie para a planilha</p>
+    <div class="sync-badge"><span class="dot"></span>conectado · ESTOQUE E COMPRA E VENDA → QC.ESTOQUE · sincronizado hoje, 21/07/2026</div>
   </header>
 
   <div class="section-title">Filtros</div>
@@ -311,13 +336,15 @@
             <th style="text-align:right;">Frete</th>
             <th style="text-align:right;">Desconto</th>
             <th style="text-align:right;">Valor</th>
-            <th>Status</th>
+            <th title="Status de entrega, vindo da venda vinculada (aba V.Venda)">Status</th>
           </tr>
         </thead>
         <tbody id="rows"></tbody>
       </table>
     </div>
   </div>
+
+  <footer class="note">dados: QC.ESTOQUE (itens vendidos) + V.Venda (status de entrega) · peça "atualizar" a qualquer momento para puxar os dados mais recentes da planilha</footer>
 </div>
 
 <script>
