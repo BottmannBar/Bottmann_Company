@@ -394,7 +394,7 @@
 <script>
 // 1) Implante o Apps Script (código enviado no chat) na sua planilha como Web App.
 // 2) Cole aqui a URL gerada (termina em /exec).
-const API_URL = "https://docs.google.com/spreadsheets/d/1KvGsAgm9qyIAQdPPs5rQlsYY9WvhHtD_V_E1PQIEkpg/edit?usp=sharing";
+const API_URL = "https://script.google.com/macros/s/AKfycbxhPZcq0Qx1FIVmhkT-TC3s_LuZlKPFgRTGXUYA0resXA3YgskXhi1hUqZxHtNSZ7mR/exec";
 
 let DATA = [];
 
@@ -508,7 +508,7 @@ function setButtonLoading(loading){
 }
 
 async function loadData(){
-  if (!API_URL || API_URL.indexOf("https://docs.google.com/spreadsheets/d/1KvGsAgm9qyIAQdPPs5rQlsYY9WvhHtD_V_E1PQIEkpg/edit?usp=sharing") !== -1) {
+  if (!API_URL || API_URL.indexOf("https://script.google.com/macros/s/AKfycbxhPZcq0Qx1FIVmhkT-TC3s_LuZlKPFgRTGXUYA0resXA3YgskXhi1hUqZxHtNSZ7mR/exec") !== -1) {
     setSyncState("error", "configure a URL do Apps Script no arquivo (variável API_URL)");
     showLoadingRow("dashboard ainda não conectado à planilha · veja a mensagem acima");
     return;
