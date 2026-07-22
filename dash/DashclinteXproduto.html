@@ -508,7 +508,7 @@ function setButtonLoading(loading){
 }
 
 async function loadData(){
-  if (!API_URL || API_URL.indexOf("https://script.google.com/macros/s/AKfycbxhPZcq0Qx1FIVmhkT-TC3s_LuZlKPFgRTGXUYA0resXA3YgskXhi1hUqZxHtNSZ7mR/exec") !== -1) {
+  if (!API_URL || API_URL.indexOf("COLE_AQUI") !== -1) {
     setSyncState("error", "configure a URL do Apps Script no arquivo (variável API_URL)");
     showLoadingRow("dashboard ainda não conectado à planilha · veja a mensagem acima");
     return;
