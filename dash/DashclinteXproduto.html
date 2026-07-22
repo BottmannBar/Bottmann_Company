@@ -508,7 +508,7 @@ function setButtonLoading(loading){
 }
 
 async function loadData(){
-  if (!API_URL || API_URL.indexOf("COLE_AQUI") !== -1) {
+  if (!API_URL || API_URL.indexOf("https://docs.google.com/spreadsheets/d/1KvGsAgm9qyIAQdPPs5rQlsYY9WvhHtD_V_E1PQIEkpg/edit?usp=sharing") !== -1) {
     setSyncState("error", "configure a URL do Apps Script no arquivo (variável API_URL)");
     showLoadingRow("dashboard ainda não conectado à planilha · veja a mensagem acima");
     return;
