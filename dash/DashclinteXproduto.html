@@ -54,11 +54,18 @@
     margin-top: 6px;
   }
 
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
   .sync-badge {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    margin-top: 14px;
     padding: 7px 14px;
     border-radius: 20px;
     background: rgba(90,200,245,0.08);
@@ -68,13 +75,47 @@
     font-size: 11px;
     letter-spacing: 0.4px;
     text-transform: uppercase;
+    transition: all 0.2s ease;
   }
 
   .sync-badge .dot {
     width: 6px; height: 6px; border-radius: 50%;
     background: var(--cyan);
     box-shadow: 0 0 8px var(--cyan);
+    flex-shrink: 0;
   }
+
+  .sync-badge.error {
+    background: rgba(224,82,110,0.08);
+    border-color: rgba(224,82,110,0.3);
+    color: var(--red);
+  }
+  .sync-badge.error .dot { background: var(--red); box-shadow: 0 0 8px var(--red); }
+
+  .sync-badge.loading .dot { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+  .refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 20px;
+    background: linear-gradient(135deg, var(--blue-light) 0%, var(--blue) 100%);
+    color: #05070D;
+    font-weight: 600;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    box-shadow: 0 0 16px rgba(61,99,224,0.3);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  }
+  .refresh-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(111,151,255,0.45); }
+  .refresh-btn:disabled { opacity: 0.55; cursor: wait; }
+  .refresh-btn .spin { display: inline-block; animation: spin 0.8s linear infinite; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
   .section-title {
     display: flex;
@@ -303,7 +344,10 @@
   <header>
     <h1>Vendas por cliente</h1>
     <p>Consulte quem comprou o quê, filtre e copie para a planilha</p>
-    <div class="sync-badge"><span class="dot"></span>conectado · ESTOQUE E COMPRA E VENDA → QC.ESTOQUE · sincronizado hoje, 21/07/2026</div>
+    <div class="header-actions">
+      <div class="sync-badge" id="syncBadge"><span class="dot" id="syncDot"></span><span id="syncText">conectando…</span></div>
+      <button id="refreshBtn" class="refresh-btn">⟳ Atualizar dashboard</button>
+    </div>
   </header>
 
   <div class="section-title">Filtros</div>
@@ -336,7 +380,7 @@
             <th style="text-align:right;">Frete</th>
             <th style="text-align:right;">Desconto</th>
             <th style="text-align:right;">Valor</th>
-            <th title="Status de entrega, vindo da venda vinculada (aba V.Venda)">Status</th>
+            <th title="Status de entrega, vindo da aba V.Venda">Status</th>
           </tr>
         </thead>
         <tbody id="rows"></tbody>
@@ -344,38 +388,64 @@
     </div>
   </div>
 
-  <footer class="note">dados: QC.ESTOQUE (itens vendidos) + V.Venda (status de entrega) · peça "atualizar" a qualquer momento para puxar os dados mais recentes da planilha</footer>
+  <footer class="note" id="footerNote">dados: QC.ESTOQUE (itens vendidos) + V.Venda (status de entrega) · atualiza sozinho ao abrir a página, ou clique em "Atualizar dashboard" a qualquer momento</footer>
 </div>
 
 <script>
-const DATA = [
-  { data:"19/07/2026", cliente:"MATHEUS NONATO BAER BOTTAMNN", celular:"41991919284", marca:"APPLE", modelo:"IPHONE 11", frete:30, desconto:200, valor:1540, status:"ENTREGAR" },
-  { data:"19/07/2026", cliente:"MATHEUS NONATO BAER BOTTAMNN", celular:"41991919284", marca:"APPLE", modelo:"IPHONE 12 PRO", frete:0, desconto:0, valor:3900, status:"ENTREGAR" }
-];
+// 1) Implante o Apps Script (código enviado no chat) na sua planilha como Web App.
+// 2) Cole aqui a URL gerada (termina em /exec).
+const API_URL = "https://docs.google.com/spreadsheets/d/1KvGsAgm9qyIAQdPPs5rQlsYY9WvhHtD_V_E1PQIEkpg/edit?usp=sharing";
+
+let DATA = [];
 
 function brl(n){ return "R$ " + n.toLocaleString("pt-BR",{minimumFractionDigits:2, maximumFractionDigits:2}); }
-function mesAno(d){ const [dd,mm,yy]=d.split("/"); const meses=["01 Jan","02 Fev","03 Mar","04 Abr","05 Mai","06 Jun","07 Jul","08 Ago","09 Set","10 Out","11 Nov","12 Dez"]; return meses[parseInt(mm,10)-1]+"/"+yy; }
-function waLink(phone){ const digits = phone.replace(/\D/g,""); return "https://wa.me/55" + digits; }
+
+function mesAno(d){
+  if (!d) return "";
+  const partes = d.split("/");
+  if (partes.length < 2) return "";
+  const mm = partes[1];
+  const yy = partes[2];
+  const meses=["01 Jan","02 Fev","03 Mar","04 Abr","05 Mai","06 Jun","07 Jul","08 Ago","09 Set","10 Out","11 Nov","12 Dez"];
+  return meses[parseInt(mm,10)-1]+"/"+yy;
+}
+
+function waLink(phone){ const digits = (phone||"").replace(/\D/g,""); return "https://wa.me/55" + digits; }
+
 function badgeClass(status){
-  const s = status.toLowerCase();
+  const s = (status||"").toLowerCase();
   if (s === "entregue") return "entregue";
   if (s === "cancelado") return "cancelado";
   return "entregar";
 }
 
+function parseBRL(s){
+  if (!s) return 0;
+  const cleaned = String(s).replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',', '.');
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? 0 : n;
+}
+
 function fillSelect(id, values){
   const sel = document.getElementById(id);
-  [...new Set(values)].sort().forEach(v=>{
+  const atual = sel.value;
+  const placeholder = id === "fMarca" ? "Todas" : "Todos";
+  sel.innerHTML = '<option value="">' + placeholder + '</option>';
+  [...new Set(values.filter(Boolean))].sort().forEach(v=>{
     const o = document.createElement("option");
     o.value = v; o.textContent = v;
     sel.appendChild(o);
   });
+  if ([...sel.options].some(o => o.value === atual)) sel.value = atual;
 }
-fillSelect("fMesAno", DATA.map(r=>mesAno(r.data)));
-fillSelect("fCliente", DATA.map(r=>r.cliente));
-fillSelect("fStatus", DATA.map(r=>r.status));
-fillSelect("fMarca", DATA.map(r=>r.marca));
-fillSelect("fModelo", DATA.map(r=>r.modelo));
+
+function rebuildFilters(){
+  fillSelect("fMesAno", DATA.map(r=>mesAno(r.data)));
+  fillSelect("fCliente", DATA.map(r=>r.cliente));
+  fillSelect("fStatus", DATA.map(r=>r.status));
+  fillSelect("fMarca", DATA.map(r=>r.marca));
+  fillSelect("fModelo", DATA.map(r=>r.modelo));
+}
 
 function currentFiltered(){
   const mesAnoV = document.getElementById("fMesAno").value;
@@ -417,16 +487,89 @@ function render(){
   document.getElementById("count").textContent = rows.length + (rows.length === 1 ? " registro" : " registros");
 }
 
+function showLoadingRow(msg){
+  document.getElementById("rows").innerHTML = '<tr><td colspan="7" class="empty">'+msg+'</td></tr>';
+  document.getElementById("count").textContent = "";
+}
+
+function setSyncState(state, text){
+  const badge = document.getElementById("syncBadge");
+  const label = document.getElementById("syncText");
+  badge.classList.remove("error", "loading");
+  if (state === "error") badge.classList.add("error");
+  if (state === "loading") badge.classList.add("loading");
+  label.textContent = text;
+}
+
+function setButtonLoading(loading){
+  const btn = document.getElementById("refreshBtn");
+  btn.disabled = loading;
+  btn.innerHTML = loading ? '<span class="spin">⟳</span> Atualizando…' : '⟳ Atualizar dashboard';
+}
+
+async function loadData(){
+  if (!API_URL || API_URL.indexOf("COLE_AQUI") !== -1) {
+    setSyncState("error", "configure a URL do Apps Script no arquivo (variável API_URL)");
+    showLoadingRow("dashboard ainda não conectado à planilha · veja a mensagem acima");
+    return;
+  }
+
+  setButtonLoading(true);
+  setSyncState("loading", "buscando dados atualizados…");
+
+  try {
+    const res = await fetch(API_URL + "?t=" + Date.now());
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const json = await res.json();
+
+    if (!json.ok) {
+      throw new Error("aba QC.ESTOQUE não encontrada. Abas na planilha: " + (json.abasDisponiveis || []).join(", "));
+    }
+
+    const statusPorVenda = {};
+    (json.vv || []).forEach(v=>{
+      const id = (v["IDV.VENDAS"] || v["IDVENDA"] || "").toString().trim();
+      statusPorVenda[id] = v["FAZER-ENTREGAR"] || v["STATUS"] || v["Status"] || "";
+    });
+
+    DATA = (json.qc || []).map(r=>({
+      data: r["DATA"],
+      cliente: r["NOME"],
+      celular: r["CELULAR"],
+      marca: r["MARCA"],
+      modelo: r["MODELO"],
+      frete: parseBRL(r["FRETE"]),
+      desconto: parseBRL(r["DESCONTO"]),
+      valor: parseBRL(r["VALOR TOTAL"]),
+      status: (statusPorVenda[(r["IDVENDA"]||"").toString().trim()] || "ENTREGAR").toString().toUpperCase()
+    }));
+
+    rebuildFilters();
+    render();
+
+    const agora = new Date(json.atualizadoEm || Date.now());
+    const dataFmt = agora.toLocaleDateString("pt-BR");
+    const horaFmt = agora.toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"});
+    setSyncState("ok", "sincronizado · " + dataFmt + " " + horaFmt);
+  } catch (err) {
+    setSyncState("error", "falha ao atualizar: " + err.message);
+  } finally {
+    setButtonLoading(false);
+  }
+}
+
 ["fMesAno","fCliente","fStatus","fMarca","fModelo"].forEach(id=>{
   document.getElementById(id).addEventListener("change", render);
 });
+
+document.getElementById("refreshBtn").addEventListener("click", loadData);
 
 document.getElementById("copyBtn").addEventListener("click", ()=>{
   const rows = currentFiltered();
   const header = ["Cliente","WhatsApp","Modelo","Frete","Desconto","Valor","Status"].join("\t");
   const lines = rows.map(r => [
     r.cliente,
-    "55" + r.celular,
+    "55" + (r.celular||"").replace(/\D/g,''),
     r.modelo,
     r.frete.toFixed(2).replace(".", ","),
     r.desconto.toFixed(2).replace(".", ","),
@@ -443,7 +586,8 @@ document.getElementById("copyBtn").addEventListener("click", ()=>{
   });
 });
 
-render();
+showLoadingRow("carregando dados da planilha…");
+loadData();
 </script>
 </body>
 </html>
